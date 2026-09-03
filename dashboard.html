@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outreach Command Center</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --shell-bg: #0d0f12; --shell-panel: #15181d; --shell-ink: #dfe3e7;
+    --shell-muted: #7d858c; --shell-border: #262b31; --shell-accent: #6ea8fe;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--shell-bg); color: var(--shell-ink); font-family: "IBM Plex Sans", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; }
+  .switcher-bar {
+    position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 10px;
+    padding: 12px 22px; background: var(--shell-panel); border-bottom: 1px solid var(--shell-border);
+  }
+  .switcher-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--shell-muted); margin-right: 6px; }
+  .switcher-btn {
+    font-family: "IBM Plex Sans", sans-serif; font-size: 13px; font-weight: 500;
+    background: transparent; color: var(--shell-muted); border: 1px solid var(--shell-border);
+    border-radius: 7px; padding: 7px 14px; cursor: pointer; transition: border-color .15s, color .15s, background .15s;
+  }
+  .switcher-btn:hover { color: var(--shell-ink); border-color: var(--shell-accent); }
+  .switcher-btn:focus-visible { outline: 2px solid var(--shell-accent); outline-offset: 2px; }
+  .switcher-btn[aria-pressed="true"] { color: #0d0f12; background: var(--shell-accent); border-color: var(--shell-accent); }
+  .switcher-note { margin-left: auto; font-size: 12px; color: var(--shell-muted); display: flex; align-items: center; gap: 8px; }
+  .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #3ddc8a; box-shadow: 0 0 6px 1px #3ddc8a; }
+  .conn-dot.off { background: #f0554b; box-shadow: 0 0 6px 1px #f0554b; }
+
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  .concept { display: none; }
+  .concept.is-active { display: block; }
+  .empty-row td { text-align: center; opacity: .6; padding: 22px !important; }
+
+  /* ===================== OPS DECK ===================== */
+  [data-concept="ops"] {
+    --bg: #0a0e13; --panel: #131a22; --panel-raised: #171f28; --ink: #e7eef4; --muted: #7c8b99;
+    --border: #232c36; --accent: #3fd6c4; --accent-ink: #06211d; --ok: #3ddc8a; --warn: #f0b03e; --crit: #f0554b;
+    background: var(--bg); color: var(--ink); font-family: "IBM Plex Sans", system-ui, sans-serif;
+    padding: 28px clamp(16px, 4vw, 48px) 64px;
+  }
+  [data-concept="ops"] .mono, [data-concept="ops"] .num { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  [data-concept="ops"] h1 { font-family: "IBM Plex Mono", monospace; }
+  [data-concept="ops"] .topline { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; padding: 15px 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 20px; }
+  [data-concept="ops"] .brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+  [data-concept="ops"] .brand h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: 0.02em; }
+  [data-concept="ops"] .brand span { font-size: 12px; color: var(--muted); }
+  [data-concept="ops"] .status-chip { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: 999px; background: var(--accent-ink); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+  [data-concept="ops"] .status-chip.paused { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); background: color-mix(in srgb, var(--warn) 12%, var(--panel)); }
+  [data-concept="ops"] .status-chip.error { color: var(--crit); border-color: color-mix(in srgb, var(--crit) 35%, transparent); background: color-mix(in srgb, var(--crit) 12%, var(--panel)); }
+  [data-concept="ops"] .status-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 25%, transparent), 0 0 8px 1px currentColor; }
+  [data-concept="ops"] .meta-item { font-size: 12px; color: var(--muted); }
+  [data-concept="ops"] .meta-item b { color: var(--ink); font-weight: 500; font-family: "IBM Plex Mono", monospace; }
+  [data-concept="ops"] .src-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  [data-concept="ops"] .src-chip { background: var(--panel); border: 1px solid var(--border); color: var(--muted); border-radius: 999px; padding: 6px 14px; font-size: 12.5px; font-weight: 500; cursor: pointer; }
+  [data-concept="ops"] .src-chip.active { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+  [data-concept="ops"] .cmd-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; align-items: center; }
+  [data-concept="ops"] .cmd-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--panel-raised); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color .15s, transform .1s, opacity .15s; }
+  [data-concept="ops"] .cmd-btn:hover { border-color: var(--accent); }
+  [data-concept="ops"] .cmd-btn:active { transform: translateY(1px); }
+  [data-concept="ops"] .cmd-btn:disabled { opacity: .45; cursor: default; }
+  [data-concept="ops"] .cmd-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [data-concept="ops"] .cmd-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  [data-concept="ops"] .cmd-btn.danger { color: var(--crit); border-color: color-mix(in srgb, var(--crit) 40%, var(--border)); }
+  [data-concept="ops"] .cmd-msg { font-size: 12px; color: var(--muted); margin-left: 6px; }
+  [data-concept="ops"] .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  [data-concept="ops"] .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  [data-concept="ops"] .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+  [data-concept="ops"] .stat .num { font-size: 26px; font-weight: 600; margin-top: 6px; line-height: 1; }
+  [data-concept="ops"] .stat .sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+  [data-concept="ops"] .stat.ok .num { color: var(--ok); } [data-concept="ops"] .stat.warn .num { color: var(--warn); }
+  [data-concept="ops"] .panel-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 10px; }
+  [data-concept="ops"] .funnel { display: flex; gap: 8px; margin-bottom: 22px; flex-wrap: wrap; }
+  [data-concept="ops"] .funnel-step { flex: 1 1 130px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; position: relative; }
+  [data-concept="ops"] .funnel-step .n { font-size: 20px; font-weight: 600; font-family: "IBM Plex Mono", monospace; }
+  [data-concept="ops"] .funnel-step .t { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  [data-concept="ops"] .funnel-step::after { content: "→"; position: absolute; right: -14px; top: 50%; transform: translateY(-50%); color: var(--border); font-size: 13px; }
+  [data-concept="ops"] .funnel-step:last-child::after { content: none; }
+  [data-concept="ops"] .tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+  [data-concept="ops"] .tab { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 7px; padding: 7px 13px; font-size: 12.5px; cursor: pointer; }
+  [data-concept="ops"] .tab.active { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+  [data-concept="ops"] .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px; margin-bottom: 20px; }
+  [data-concept="ops"] table { font-size: 13px; }
+  [data-concept="ops"] th { text-align: left; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  [data-concept="ops"] td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  [data-concept="ops"] tr:last-child td { border-bottom: none; }
+  [data-concept="ops"] .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 999px; }
+  [data-concept="ops"] .badge.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+  [data-concept="ops"] .badge.warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+  [data-concept="ops"] .badge.crit { background: color-mix(in srgb, var(--crit) 16%, transparent); color: var(--crit); }
+  [data-concept="ops"] .badge.neutral { background: color-mix(in srgb, var(--muted) 18%, transparent); color: var(--muted); }
+  [data-concept="ops"] .log { background: #070a0d; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; line-height: 1.7; color: #9fb0bd; max-height: 260px; overflow-y: auto; }
+  [data-concept="ops"] .log .t { color: var(--muted); } [data-concept="ops"] .log .ok { color: var(--ok); } [data-concept="ops"] .log .warn { color: var(--warn); } [data-concept="ops"] .log .err { color: var(--crit); }
+  [data-concept="ops"] .diag-toggle { display: block; width: 100%; text-align: left; background: var(--panel); border: 1px dashed var(--border); color: var(--muted); border-radius: 8px; padding: 9px 14px; font-size: 12.5px; font-weight: 500; cursor: pointer; margin-bottom: 12px; }
+  [data-concept="ops"] .diag-toggle:hover { border-color: var(--accent); color: var(--ink); }
+  [data-concept="ops"] .diag-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 22px; }
+  [data-concept="ops"] .diag-field-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 12px 0 6px; }
+  [data-concept="ops"] .diag-field-title:first-child { margin-top: 0; }
+  [data-concept="ops"] .diag-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--panel-raised); border: 1px solid var(--border); color: var(--ink); border-radius: 999px; padding: 5px 11px; font-size: 12px; cursor: pointer; margin: 0 6px 6px 0; }
+  [data-concept="ops"] .diag-pill:hover { border-color: var(--accent); }
+  [data-concept="ops"] .diag-pill .n { font-family: "IBM Plex Mono", monospace; color: var(--accent); font-weight: 600; }
+
+  /* ===================== FIELD LEDGER ===================== */
+  [data-concept="ledger"] {
+    --bg: #f5efe4; --panel: #fbf8f2; --ink: #29241f; --muted: #857c6d; --border: #ddd2bc;
+    --accent: #b5502e; --accent-ink: #fbf1ea; --ok: #4c7a52; --warn: #ad7a1f; --crit: #b5502e;
+    background: var(--bg); color: var(--ink); font-family: "Source Sans 3", system-ui, sans-serif;
+    padding: 28px clamp(16px, 4vw, 52px) 64px;
+  }
+  [data-concept="ledger"] .mono, [data-concept="ledger"] .num { font-family: "Space Mono", monospace; font-variant-numeric: tabular-nums; }
+  [data-concept="ledger"] h1 { font-family: "Fraunces", Georgia, serif; font-weight: 600; }
+  [data-concept="ledger"] .topline { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; padding: 18px 4px 20px; border-bottom: 2px solid var(--ink); margin-bottom: 24px; }
+  [data-concept="ledger"] .brand { display: flex; align-items: baseline; gap: 12px; margin-right: auto; }
+  [data-concept="ledger"] .brand h1 { font-size: 22px; margin: 0; }
+  [data-concept="ledger"] .brand span { font-size: 12.5px; color: var(--muted); font-style: italic; }
+  [data-concept="ledger"] .status-chip { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; padding: 6px 13px; border-radius: 3px; background: var(--accent-ink); color: var(--accent); border: 1px solid var(--accent); }
+  [data-concept="ledger"] .status-chip.paused { color: var(--warn); border-color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--panel)); }
+  [data-concept="ledger"] .status-chip.error { color: var(--crit); border-color: var(--crit); background: color-mix(in srgb, var(--crit) 10%, var(--panel)); }
+  [data-concept="ledger"] .status-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  [data-concept="ledger"] .meta-item { font-size: 12.5px; color: var(--muted); }
+  [data-concept="ledger"] .meta-item b { color: var(--ink); font-weight: 600; font-family: "Space Mono", monospace; }
+  [data-concept="ledger"] .src-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  [data-concept="ledger"] .src-chip { background: var(--panel); border: 1.5px solid var(--ink); color: var(--ink); border-radius: 3px; padding: 6px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  [data-concept="ledger"] .src-chip.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  [data-concept="ledger"] .cmd-row { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 28px; align-items: center; }
+  [data-concept="ledger"] .cmd-btn { background: var(--panel); color: var(--ink); border: 1.5px solid var(--ink); border-radius: 3px; padding: 9px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer; font-family: "Source Sans 3", sans-serif; transition: opacity .15s; }
+  [data-concept="ledger"] .cmd-btn:hover { background: var(--ink); color: var(--panel); }
+  [data-concept="ledger"] .cmd-btn:disabled { opacity: .45; cursor: default; }
+  [data-concept="ledger"] .cmd-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [data-concept="ledger"] .cmd-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  [data-concept="ledger"] .cmd-btn.danger { color: var(--crit); border-color: var(--crit); background: var(--panel); }
+  [data-concept="ledger"] .cmd-msg { font-size: 12.5px; color: var(--muted); margin-left: 6px; }
+  [data-concept="ledger"] .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border-top: 1px solid var(--border); border-left: 1px solid var(--border); margin-bottom: 28px; }
+  [data-concept="ledger"] .stat { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 16px 18px; background: var(--panel); }
+  [data-concept="ledger"] .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+  [data-concept="ledger"] .stat .num { font-size: 27px; font-weight: 700; margin-top: 7px; line-height: 1; }
+  [data-concept="ledger"] .stat .sub { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+  [data-concept="ledger"] .stat.ok .num { color: var(--ok); } [data-concept="ledger"] .stat.warn .num { color: var(--warn); }
+  [data-concept="ledger"] .panel-title { font-family: "Fraunces", serif; font-size: 15px; font-weight: 600; color: var(--ink); margin: 0 0 12px; }
+  [data-concept="ledger"] .funnel { display: flex; gap: 0; margin-bottom: 26px; flex-wrap: wrap; border: 1px solid var(--border); }
+  [data-concept="ledger"] .funnel-step { flex: 1 1 130px; padding: 14px 16px; border-right: 1px solid var(--border); background: var(--panel); }
+  [data-concept="ledger"] .funnel-step:last-child { border-right: none; }
+  [data-concept="ledger"] .funnel-step .n { font-family: "Space Mono", monospace; font-size: 21px; font-weight: 700; }
+  [data-concept="ledger"] .funnel-step .t { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  [data-concept="ledger"] .tabs { display: flex; gap: 2px; margin-bottom: 0; flex-wrap: wrap; }
+  [data-concept="ledger"] .tab { background: transparent; border: none; border-bottom: 3px solid transparent; color: var(--muted); padding: 9px 15px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  [data-concept="ledger"] .tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+  [data-concept="ledger"] .panel { background: var(--panel); border: 1px solid var(--border); border-top: none; margin-bottom: 26px; }
+  [data-concept="ledger"] table { font-size: 13.5px; }
+  [data-concept="ledger"] th { text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  [data-concept="ledger"] td { padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  [data-concept="ledger"] tr:last-child td { border-bottom: none; }
+  [data-concept="ledger"] .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 3px; border: 1px solid transparent; }
+  [data-concept="ledger"] .badge.ok { background: color-mix(in srgb, var(--ok) 12%, var(--panel)); color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+  [data-concept="ledger"] .badge.warn { background: color-mix(in srgb, var(--warn) 12%, var(--panel)); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+  [data-concept="ledger"] .badge.crit { background: color-mix(in srgb, var(--crit) 12%, var(--panel)); color: var(--crit); border-color: color-mix(in srgb, var(--crit) 40%, transparent); }
+  [data-concept="ledger"] .badge.neutral { background: #efe9db; color: var(--muted); }
+  [data-concept="ledger"] .log { background: #29241f; border-radius: 4px; padding: 15px 17px; font-family: "Space Mono", monospace; font-size: 11.5px; line-height: 1.75; color: #d8cdb8; max-height: 260px; overflow-y: auto; }
+  [data-concept="ledger"] .log .t { color: #8a806c; } [data-concept="ledger"] .log .ok { color: #8fbf94; } [data-concept="ledger"] .log .warn { color: #e0ac4f; } [data-concept="ledger"] .log .err { color: #e17b62; }
+  [data-concept="ledger"] .diag-toggle { display: block; width: 100%; text-align: left; background: var(--panel); border: 1px dashed var(--border); color: var(--muted); border-radius: 3px; padding: 9px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; margin-bottom: 14px; font-family: "Source Sans 3", sans-serif; }
+  [data-concept="ledger"] .diag-toggle:hover { border-color: var(--accent); color: var(--ink); }
+  [data-concept="ledger"] .diag-panel { background: var(--panel); border: 1px solid var(--border); padding: 16px; margin-bottom: 26px; }
+  [data-concept="ledger"] .diag-field-title { font-family: "Fraunces", serif; font-size: 13px; color: var(--ink); margin: 12px 0 6px; }
+  [data-concept="ledger"] .diag-field-title:first-child { margin-top: 0; }
+  [data-concept="ledger"] .diag-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-ink); border: 1px solid var(--border); color: var(--ink); border-radius: 3px; padding: 5px 11px; font-size: 12px; cursor: pointer; margin: 0 6px 6px 0; }
+  [data-concept="ledger"] .diag-pill:hover { border-color: var(--accent); }
+  [data-concept="ledger"] .diag-pill .n { font-family: "Space Mono", monospace; color: var(--accent); font-weight: 700; }
+
+  /* ===================== SIGNAL ROOM ===================== */
+  [data-concept="signal"] {
+    --bg: #15100b; --panel: #1f1811; --panel-raised: #271e14; --ink: #f2b84b; --dim: #8a6a34;
+    --border: #3a2c18; --accent: #ffb000; --accent-ink: #1a1206; --ok: #8fd66b; --warn: #ffb000; --crit: #ff5f4d;
+    background: var(--bg); color: var(--ink); font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums;
+    padding: 28px clamp(16px, 4vw, 48px) 64px;
+  }
+  [data-concept="signal"] .topline { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 15px 18px; background: var(--panel); border: 1px solid var(--border); margin-bottom: 20px; }
+  [data-concept="signal"] .brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+  [data-concept="signal"] .brand h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: 0.03em; color: var(--accent); }
+  [data-concept="signal"] .brand h1::before { content: "> "; opacity: .7; }
+  [data-concept="signal"] .brand span { font-size: 11.5px; color: var(--dim); }
+  [data-concept="signal"] .status-chip { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700; padding: 5px 12px; background: var(--accent-ink); color: var(--accent); border: 1px solid var(--accent); text-transform: uppercase; letter-spacing: 0.06em; }
+  [data-concept="signal"] .status-chip.paused { color: var(--warn); border-color: var(--warn); }
+  [data-concept="signal"] .status-chip.error { color: var(--crit); border-color: var(--crit); }
+  [data-concept="signal"] .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px 1px currentColor; }
+  [data-concept="signal"] .meta-item { font-size: 11.5px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  [data-concept="signal"] .meta-item b { color: var(--ink); font-weight: 700; }
+  [data-concept="signal"] .src-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  [data-concept="signal"] .src-chip { background: var(--panel-raised); border: 1px solid var(--border); color: var(--dim); padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; text-transform: uppercase; letter-spacing: 0.03em; }
+  [data-concept="signal"] .src-chip.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  [data-concept="signal"] .cmd-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; align-items: center; }
+  [data-concept="signal"] .cmd-btn { background: var(--panel-raised); color: var(--ink); border: 1px solid var(--border); padding: 9px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: 0.03em; transition: opacity .15s; }
+  [data-concept="signal"] .cmd-btn::before { content: "["; color: var(--dim); margin-right: 2px; }
+  [data-concept="signal"] .cmd-btn::after { content: "]"; color: var(--dim); margin-left: 2px; }
+  [data-concept="signal"] .cmd-btn:hover { border-color: var(--accent); color: var(--accent); }
+  [data-concept="signal"] .cmd-btn:disabled { opacity: .45; cursor: default; }
+  [data-concept="signal"] .cmd-btn:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+  [data-concept="signal"] .cmd-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  [data-concept="signal"] .cmd-btn.danger { color: var(--crit); border-color: var(--crit); }
+  [data-concept="signal"] .cmd-msg { font-size: 11.5px; color: var(--dim); margin-left: 6px; }
+  [data-concept="signal"] .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 20px; }
+  [data-concept="signal"] .stat { background: var(--panel); padding: 14px 16px; }
+  [data-concept="signal"] .stat .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
+  [data-concept="signal"] .stat .num { font-size: 25px; font-weight: 700; margin-top: 6px; line-height: 1; }
+  [data-concept="signal"] .stat .sub { font-size: 10.5px; color: var(--dim); margin-top: 5px; }
+  [data-concept="signal"] .stat.ok .num { color: var(--ok); } [data-concept="signal"] .stat.warn .num { color: var(--warn); }
+  [data-concept="signal"] .panel-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); margin: 0 0 10px; }
+  [data-concept="signal"] .funnel { display: flex; gap: 1px; margin-bottom: 22px; flex-wrap: wrap; background: var(--border); border: 1px solid var(--border); }
+  [data-concept="signal"] .funnel-step { flex: 1 1 130px; background: var(--panel); padding: 12px 14px; }
+  [data-concept="signal"] .funnel-step .n { font-size: 19px; font-weight: 700; }
+  [data-concept="signal"] .funnel-step .t { font-size: 10.5px; color: var(--dim); margin-top: 3px; text-transform: uppercase; }
+  [data-concept="signal"] .tabs { display: flex; gap: 0; margin-bottom: 0; flex-wrap: wrap; border: 1px solid var(--border); border-bottom: none; }
+  [data-concept="signal"] .tab { background: var(--panel); border: none; border-right: 1px solid var(--border); color: var(--dim); padding: 9px 14px; font-size: 11.5px; font-weight: 600; cursor: pointer; font-family: "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: 0.03em; }
+  [data-concept="signal"] .tab.active { color: var(--accent-ink); background: var(--accent); }
+  [data-concept="signal"] .panel { background: var(--panel); border: 1px solid var(--border); margin-bottom: 20px; }
+  [data-concept="signal"] table { font-size: 12.5px; }
+  [data-concept="signal"] th { text-align: left; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  [data-concept="signal"] td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  [data-concept="signal"] tr:last-child td { border-bottom: none; }
+  [data-concept="signal"] .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; padding: 3px 8px; text-transform: uppercase; letter-spacing: 0.03em; border: 1px solid transparent; }
+  [data-concept="signal"] .badge.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); }
+  [data-concept="signal"] .badge.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
+  [data-concept="signal"] .badge.crit { color: var(--crit); border-color: color-mix(in srgb, var(--crit) 50%, transparent); }
+  [data-concept="signal"] .badge.neutral { color: var(--dim); border-color: var(--border); }
+  [data-concept="signal"] .log { background: #0e0a06; border: 1px solid var(--border); padding: 14px 16px; font-size: 11.5px; line-height: 1.7; color: #c99a45; max-height: 260px; overflow-y: auto; }
+  [data-concept="signal"] .log .t { color: var(--dim); } [data-concept="signal"] .log .ok { color: var(--ok); } [data-concept="signal"] .log .warn { color: var(--warn); } [data-concept="signal"] .log .err { color: var(--crit); }
+  [data-concept="signal"] .diag-toggle { display: block; width: 100%; text-align: left; background: var(--panel); border: 1px dashed var(--border); color: var(--dim); padding: 9px 14px; font-size: 12px; font-weight: 600; cursor: pointer; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.03em; }
+  [data-concept="signal"] .diag-toggle:hover { border-color: var(--accent); color: var(--ink); }
+  [data-concept="signal"] .diag-panel { background: var(--panel); border: 1px solid var(--border); padding: 14px; margin-bottom: 20px; }
+  [data-concept="signal"] .diag-field-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin: 12px 0 6px; }
+  [data-concept="signal"] .diag-field-title:first-child { margin-top: 0; }
+  [data-concept="signal"] .diag-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--panel-raised); border: 1px solid var(--border); color: var(--ink); padding: 5px 11px; font-size: 11.5px; cursor: pointer; margin: 0 6px 6px 0; }
+  [data-concept="signal"] .diag-pill:hover { border-color: var(--accent); }
+  [data-concept="signal"] .diag-pill .n { color: var(--accent); font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="switcher-bar">
+    <span class="switcher-label">Theme</span>
+    <button class="switcher-btn" data-set="ops">Ops Deck</button>
+    <button class="switcher-btn" data-set="ledger">Field Ledger</button>
+    <button class="switcher-btn" data-set="signal">Signal Room</button>
+    <span class="switcher-note"><span class="conn-dot" id="connDot"></span><span id="connLabel">connecting…</span></span>
+  </div>
+
+  <div id="stage"></div>
+
+<script>
+// state.txt and the log file are cheap and never conflict with the automation's own writes to
+// the Excel workbook, so they can refresh often. Stats/leads DO read the live .xlsx -- polling
+// that too aggressively means there's almost always a read in flight exactly when the
+// automation tries to save a change, which on Windows can make its write fail outright (not
+// just a display staleness issue). The automation's own pacing never changes anything faster
+// than several minutes anyway, so a slower refresh here costs nothing real.
+const FAST_REFRESH_MS = 3000;
+const EXCEL_REFRESH_MS = 20000;
+const TABS = [
+  ["dmed_today", "DM'd today"],
+  ["followed_today", "Followed today"],
+  ["replied", "Replied"],
+  ["waiting_approval", "Waiting approval"],
+  ["manual_review", "Manual review"],
+  ["filtered", "Filtered"],
+  ["sent", "Sent (all)"],
+];
+
+let currentTheme = localStorage.getItem("cc_theme") || "ops";
+let activeTab = "dmed_today";
+let MULTI = false;              // filled in from /api/sources on load
+let SOURCES = [];                // [{id,name}, ...] -- one entry in single-workbook mode
+let activeSource = "ALL";        // "ALL" or a source id like "SP1"
+
+function sourceSelectorHtml() {
+  if (!MULTI) return "";
+  const chips = [`<button class="src-chip${activeSource === "ALL" ? " active" : ""}" data-src="ALL">All salespeople</button>`]
+    .concat(SOURCES.map(s => `<button class="src-chip${activeSource === s.id ? " active" : ""}" data-src="${s.id}">${s.name}</button>`));
+  return `<div class="src-row">${chips.join("")}</div>`;
+}
+
+function dashboardMarkup() {
+  const tabsHtml = TABS.map(([key, label], i) =>
+    `<button class="tab${i === 0 ? " active" : ""}" data-tab="${key}">${label} (<span data-count="${key}">–</span>)</button>`
+  ).join("");
+  const sourceColHeader = MULTI ? "<th>Salesperson</th>" : "";
+  return `
+    <div class="topline">
+      <div class="brand"><h1>Outreach Command Center</h1><span id="brandSub">–</span></div>
+      <div class="status-chip" id="statusChip"><span class="dot"></span> <span id="statusText">–</span></div>
+      <div class="meta-item">Pointer <b id="metaPointer">–</b></div>
+      <div class="meta-item">Next follow <b id="metaNextFollow">–</b></div>
+      <div class="meta-item">Next DM <b id="metaNextMsg">–</b></div>
+      <div class="meta-item">Last error <b id="metaError">none</b></div>
+      <div class="meta-item">All times &amp; "today" in <b id="metaTz">–</b></div>
+    </div>
+
+    ${sourceSelectorHtml()}
+
+    <div class="cmd-row">
+      <button class="cmd-btn danger" data-cmd="pause">Pause</button>
+      <button class="cmd-btn primary" data-cmd="resume">Resume</button>
+      <button class="cmd-btn" data-cmd="run_once">Run Once</button>
+      <button class="cmd-btn" data-cmd="start_scheduler">Start Scheduler</button>
+      <button class="cmd-btn danger" data-cmd="stop_scheduler">Stop Scheduler</button>
+      <button class="cmd-btn" data-cmd="rewind">Rewind 1${MULTI ? " (selected)" : ""}</button>
+      <button class="cmd-btn" data-cmd="skip">Skip 1${MULTI ? " (selected)" : ""}</button>
+      <button class="cmd-btn" data-cmd="set_pointer">Set Pointer…</button>
+      <span class="cmd-msg" id="cmdMsg"></span>
+    </div>
+
+    <div class="grid-stats">
+      <div class="stat ok"><div class="label">Followed today</div><div class="num" id="statFollowed">–</div><div class="sub" id="statFollowedSub">–</div></div>
+      <div class="stat ok"><div class="label">DM'd today</div><div class="num" id="statDmed">–</div><div class="sub" id="statDmedSub">–</div></div>
+      <div class="stat"><div class="label">Replies</div><div class="num" id="statReplies">–</div><div class="sub">awaiting / received</div></div>
+      <div class="stat"><div class="label">Seen, no reply</div><div class="num" id="statSeen">–</div><div class="sub">may still reply</div></div>
+      <div class="stat warn"><div class="label">Manual review</div><div class="num" id="statManual">–</div><div class="sub">needs a look</div></div>
+      <div class="stat"><div class="label">Filtered</div><div class="num" id="statFiltered">–</div><div class="sub">excluded leads</div></div>
+    </div>
+
+    <p class="panel-title">Pipeline${MULTI && activeSource !== "ALL" ? " — " + (SOURCES.find(s => s.id === activeSource) || {}).name : ""}</p>
+    <div class="funnel">
+      <div class="funnel-step"><div class="n" id="funnelProcessing">–</div><div class="t">Processing</div></div>
+      <div class="funnel-step"><div class="n" id="funnelWaiting">–</div><div class="t">Waiting Approval</div></div>
+      <div class="funnel-step"><div class="n" id="funnelWaitingFollowBack">–</div><div class="t">Waiting Follow-Back</div></div>
+      <div class="funnel-step"><div class="n" id="funnelReady">–</div><div class="t">Ready to Message</div></div>
+      <div class="funnel-step"><div class="n" id="funnelSent">–</div><div class="t">Sent</div></div>
+      <div class="funnel-step"><div class="n" id="funnelManual">–</div><div class="t">Manual Conversation</div></div>
+    </div>
+
+    <p class="panel-title" id="fbPanelTitle">Follow-Back Timing</p>
+    <div class="grid-stats">
+      <div class="stat"><div class="label">Follow sent</div><div class="num" id="fbSent">–</div><div class="sub">this view</div></div>
+      <div class="stat ok"><div class="label">Follow-back received</div><div class="num" id="fbReceived">–</div><div class="sub" id="fbRateSub">–</div></div>
+      <div class="stat"><div class="label">Early follow-back DMs</div><div class="num" id="fbEarlyDms">–</div><div class="sub" id="fbEarlyRateSub">–</div></div>
+      <div class="stat"><div class="label">Proactive Y-timeout DMs</div><div class="num" id="fbYDms">–</div><div class="sub" id="fbYRateSub">–</div></div>
+      <div class="stat warn"><div class="label">No follow-back (7d)</div><div class="num" id="fbNoReturn">–</div><div class="sub" id="fbNoReturnRateSub">–</div></div>
+      <div class="stat warn"><div class="label">Unfollowed (7d)</div><div class="num" id="fbUnfollowed">–</div><div class="sub">cleanup ran</div></div>
+    </div>
+
+    <button class="diag-toggle" id="diagToggle">Diagnostics: every internal queue ▾</button>
+    <div class="diag-panel" id="diagPanel" style="display:none;">
+      <p class="panel-title">Every status the automation has written, right now${MULTI ? " (" + (activeSource === "ALL" ? "all salespeople" : (SOURCES.find(s=>s.id===activeSource)||{}).name) + ")" : ""}</p>
+      <div id="diagBreakdown">Loading…</div>
+      <p class="panel-title" id="diagLeadsTitle" style="display:none;">Leads in this bucket</p>
+      <div class="panel" id="diagLeadsPanel" style="display:none;">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Username</th><th>Automation Status</th><th>Follow Status</th><th>Already Following</th><th>Follow Requested</th><th>Follow Accepted</th><th>Message Status</th><th>Last Action</th><th>Notes / Error</th></tr></thead>
+            <tbody id="diagLeadsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <p class="panel-title">Leads</p>
+    <div class="tabs">${tabsHtml}</div>
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Username</th><th>Status</th><th>Message</th><th>Sent</th><th>Seen</th><th>Reply / Reason</th>${sourceColHeader}</tr></thead>
+          <tbody id="leadsBody"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="panel-title">Live log</p>
+    <div class="log" id="logPanel">Loading…</div>
+  `;
+}
+
+function renderStage() {
+  const stage = document.getElementById("stage");
+  stage.innerHTML = `<div class="concept is-active" data-concept="${currentTheme}">${dashboardMarkup()}</div>`;
+  document.querySelectorAll(".switcher-btn").forEach(b => b.setAttribute("aria-pressed", b.dataset.set === currentTheme ? "true" : "false"));
+  wireStage();
+}
+
+function setTheme(name) {
+  currentTheme = name;
+  localStorage.setItem("cc_theme", name);
+  renderStage();
+  refreshAll();
+}
+
+function badge(text, kind) { return `<span class="badge ${kind}">${text}</span>`; }
+
+function statusBadge(status) {
+  const s = (status || "").toUpperCase();
+  const map = {
+    "MESSAGE_SENT": "ok", "READY_TO_MESSAGE": "ok", "WAITING_FOLLOW_APPROVAL": "warn",
+    "WAITING_FOLLOW_BACK": "warn",
+    "PROCESSING": "neutral", "MANUAL_REVIEW": "warn", "MANUAL_CONVERSATION": "ok",
+    "FILTERED": "crit",
+  };
+  return badge(s || "–", map[s] || "neutral");
+}
+
+// Always shown in the automation's own operating timezone (TIMEZONE in .env, fetched from
+// /api/state) rather than the viewer's browser timezone -- otherwise "today" counts computed
+// server-side and times displayed here can silently disagree with each other.
+let AUTOMATION_TZ = "UTC";
+
+function fmtTime(v) {
+  if (!v) return "–";
+  try {
+    const d = new Date(v);
+    if (isNaN(d)) return String(v).slice(0, 16);
+    return new Intl.DateTimeFormat(undefined, {
+      timeZone: AUTOMATION_TZ, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+    }).format(d);
+  } catch { return String(v); }
+}
+
+async function cmd(action, params = {}) {
+  const msgEl = document.getElementById("cmdMsg");
+  msgEl.textContent = "working…";
+  try {
+    const res = await fetch("/api/command", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...params }),
+    });
+    const data = await res.json();
+    msgEl.textContent = data.message || (data.ok ? "done" : "failed");
+  } catch (e) {
+    msgEl.textContent = "Error: " + e;
+  }
+  refreshAll();
+}
+
+function wireStage() {
+  document.querySelectorAll(".switcher-btn").forEach(b => {
+    b.onclick = () => setTheme(b.dataset.set);
+  });
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      activeTab = tab.dataset.tab;
+      loadLeads();
+    };
+  });
+  document.querySelectorAll(".src-chip").forEach(chip => {
+    chip.onclick = () => {
+      activeSource = chip.dataset.src;
+      document.querySelectorAll(".src-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      refreshExcelData();
+      refreshState();
+    };
+  });
+  document.querySelectorAll("[data-cmd]").forEach(btn => {
+    btn.onclick = () => {
+      const action = btn.dataset.cmd;
+      // Pointer commands act on one specific salesperson -- "All salespeople" isn't a valid
+      // target, so fall back to the first configured source rather than sending nothing.
+      const pointerSource = (MULTI && activeSource !== "ALL") ? activeSource
+                           : (MULTI ? SOURCES[0]?.id : undefined);
+      if (action === "set_pointer") {
+        const v = prompt(`Set pointer to row index (0-based)${MULTI ? " for " + (SOURCES.find(s=>s.id===pointerSource)||{}).name : ""}:`);
+        if (v === null || v.trim() === "") return;
+        cmd("set_pointer", { index: parseInt(v, 10) || 0, source: pointerSource });
+      } else if (action === "rewind" || action === "skip") {
+        cmd(action, { amount: 1, source: pointerSource });
+      } else {
+        cmd(action);
+      }
+    };
+  });
+  const diagToggle = document.getElementById("diagToggle");
+  if (diagToggle) {
+    diagToggle.onclick = () => {
+      const panel = document.getElementById("diagPanel");
+      const opening = panel.style.display === "none";
+      panel.style.display = opening ? "block" : "none";
+      diagToggle.textContent = "Diagnostics: every internal queue " + (opening ? "▴" : "▾");
+      if (opening) loadDiagBreakdown();
+    };
+  }
+}
+
+function diagPanelIsOpen() {
+  const panel = document.getElementById("diagPanel");
+  return panel && panel.style.display !== "none";
+}
+
+async function loadDiagBreakdown() {
+  const el = document.getElementById("diagBreakdown");
+  if (!el) return;
+  try {
+    const srcParam = MULTI ? `?source=${activeSource}` : "";
+    const res = await fetch(`/api/status_breakdown${srcParam}`);
+    const data = await res.json();
+    const fieldLabels = { "Automation Status": "Automation Status (the main pipeline stage)",
+                           "Follow Status": "Follow Status", "Message Status": "Message Status" };
+    el.innerHTML = Object.entries(data.breakdown).map(([field, counts]) => `
+      <div class="diag-field-title">${fieldLabels[field] || field}</div>
+      ${Object.entries(counts).map(([value, n]) =>
+        `<button class="diag-pill" data-field="${field}" data-value="${value}"><span class="n">${n}</span> ${value}</button>`
+      ).join("")}
+    `).join("");
+    el.querySelectorAll(".diag-pill").forEach(btn => {
+      btn.onclick = () => loadDiagLeads(btn.dataset.field, btn.dataset.value);
+    });
+  } catch (e) {
+    el.innerHTML = "Could not load breakdown.";
+  }
+}
+
+async function loadDiagLeads(field, value) {
+  const title = document.getElementById("diagLeadsTitle");
+  const panel = document.getElementById("diagLeadsPanel");
+  const body = document.getElementById("diagLeadsBody");
+  title.style.display = "block"; panel.style.display = "block";
+  title.textContent = `Leads where ${field} = ${value}`;
+  body.innerHTML = `<tr class="empty-row"><td colspan="9">Loading…</td></tr>`;
+  try {
+    const srcParam = MULTI ? `&source=${activeSource}` : "";
+    const res = await fetch(`/api/leads?field=${encodeURIComponent(field)}&value=${encodeURIComponent(value)}${srcParam}`);
+    const data = await res.json();
+    if (!data.leads || !data.leads.length) {
+      body.innerHTML = `<tr class="empty-row"><td colspan="9">No leads in this bucket.</td></tr>`;
+      return;
+    }
+    body.innerHTML = data.leads.map(r => `
+      <tr>
+        <td>@${r.Username || "–"}${MULTI ? " · " + (r.SourceName || r.Source || "") : ""}</td>
+        <td>${r["Automation Status"] || "–"}</td>
+        <td>${r["Follow Status"] || "–"}</td>
+        <td>${r["Already Following"] || "–"}</td>
+        <td class="mono">${fmtTime(r["Follow Requested At"])}</td>
+        <td class="mono">${fmtTime(r["Follow Accepted At"])}</td>
+        <td>${r["Message Status"] || "–"}</td>
+        <td>${r["Last Automation Action"] || "–"}</td>
+        <td>${(r["Automation Notes"] || r["Last Error"] || r["Filtered Reason"] || "–").toString().slice(0, 80)}</td>
+      </tr>`).join("");
+  } catch (e) {
+    body.innerHTML = `<tr class="empty-row"><td colspan="9">Could not load leads.</td></tr>`;
+  }
+}
+
+async function refreshState() {
+  try {
+    const srcParam = MULTI ? `?source=${activeSource === "ALL" ? (SOURCES[0]?.id || "") : activeSource}` : "";
+    const res = await fetch(`/api/state${srcParam}`);
+    const s = await res.json();
+    document.getElementById("connDot").classList.remove("off");
+    document.getElementById("connLabel").textContent = "live";
+    const chip = document.getElementById("statusChip");
+    const text = document.getElementById("statusText");
+    const mode = s.MODE || "–";
+    chip.className = "status-chip" + (mode === "PAUSED_ERROR" ? " error" : (mode !== "RUN" ? " paused" : ""));
+    text.textContent = mode + (s.SCHEDULER_TRACKED_RUNNING ? " · scheduler running" : "");
+    if (s.TIMEZONE) AUTOMATION_TZ = s.TIMEZONE;
+    document.getElementById("metaTz").textContent = AUTOMATION_TZ;
+    if (s.FOLLOW_BACK_WAIT_HOURS != null) {
+      const fbTitle = document.getElementById("fbPanelTitle");
+      if (fbTitle) fbTitle.textContent = `Follow-Back Timing (Y = ${s.FOLLOW_BACK_WAIT_HOURS}h)`;
+    }
+    document.getElementById("metaPointer").textContent = (MULTI && activeSource === "ALL")
+      ? "per salesperson" : `row ${s.POINTER_ROW || "–"}`;
+    document.getElementById("metaNextFollow").textContent = fmtTime(s.NEXT_FOLLOW_NOT_BEFORE);
+    document.getElementById("metaNextMsg").textContent = fmtTime(s.NEXT_MESSAGE_NOT_BEFORE);
+    document.getElementById("metaError").textContent = s.GLOBAL_ERROR || "none";
+    document.getElementById("brandSub").textContent = s.MODE === "RUN" ? "active" : "idle";
+  } catch (e) {
+    document.getElementById("connDot").classList.add("off");
+    document.getElementById("connLabel").textContent = "disconnected";
+  }
+}
+
+async function refreshStats() {
+  try {
+    const srcParam = MULTI ? `?source=${activeSource}` : "";
+    const res = await fetch(`/api/stats${srcParam}`);
+    const s = await res.json();
+    const perSourceView = MULTI && activeSource !== "ALL";
+    document.getElementById("statFollowed").textContent = s.followed_today;
+    document.getElementById("statFollowedSub").textContent = perSourceView
+      ? `account-wide: ${s.shared_followed_today} of ${s.daily_follow_limit} daily cap`
+      : `of ${s.daily_follow_limit} daily cap`;
+    document.getElementById("statDmed").textContent = s.dmed_today;
+    document.getElementById("statDmedSub").textContent = perSourceView
+      ? `account-wide: ${s.shared_dmed_today} of ${s.daily_message_limit} daily cap`
+      : `of ${s.daily_message_limit} daily cap`;
+    document.getElementById("statReplies").textContent = s.replies;
+    document.getElementById("statSeen").textContent = s.seen_no_reply;
+    document.getElementById("statManual").textContent = s.manual_review;
+    document.getElementById("statFiltered").textContent = s.filtered;
+    document.getElementById("funnelProcessing").textContent = s.funnel.processing;
+    document.getElementById("funnelWaiting").textContent = s.funnel.waiting_approval;
+    document.getElementById("funnelWaitingFollowBack").textContent = s.funnel.waiting_follow_back;
+    document.getElementById("funnelReady").textContent = s.funnel.ready_to_message;
+    document.getElementById("funnelSent").textContent = s.funnel.sent;
+    document.getElementById("funnelManual").textContent = s.funnel.manual_conversation;
+    const fb = s.follow_back || {};
+    const pct = v => `${Math.round((v || 0) * 100)}%`;
+    document.getElementById("fbSent").textContent = fb.follow_sent ?? "–";
+    document.getElementById("fbReceived").textContent = fb.follow_back_received ?? "–";
+    document.getElementById("fbRateSub").textContent = `${pct(fb.follow_back_rate)} of follows sent`;
+    document.getElementById("fbEarlyDms").textContent = fb.msgs_from_follow_back ?? "–";
+    document.getElementById("fbEarlyRateSub").textContent = `${pct(fb.early_follow_back_dm_rate)} of follows sent`;
+    document.getElementById("fbYDms").textContent = fb.msgs_from_y_timeout ?? "–";
+    document.getElementById("fbYRateSub").textContent = `${pct(fb.proactive_y_dm_rate)} of follows sent`;
+    document.getElementById("fbNoReturn").textContent = fb.no_follow_back_7d ?? "–";
+    document.getElementById("fbNoReturnRateSub").textContent = `${pct(fb.no_follow_back_7d_rate)} of follows sent`;
+    document.getElementById("fbUnfollowed").textContent = fb.unfollowed_7d ?? "–";
+    const counts = { dmed_today: s.dmed_today, followed_today: s.followed_today, replied: s.replies,
+                      waiting_approval: s.funnel.waiting_approval, manual_review: s.manual_review, filtered: s.filtered };
+    Object.entries(counts).forEach(([k, v]) => {
+      const el = document.querySelector(`[data-count="${k}"]`);
+      if (el) el.textContent = v;
+    });
+  } catch (e) { /* connection status already shown by refreshState */ }
+}
+
+async function loadLeads() {
+  try {
+    const srcParam = MULTI ? `&source=${activeSource}` : "";
+    const res = await fetch(`/api/leads?tab=${activeTab}${srcParam}`);
+    const data = await res.json();
+    const body = document.getElementById("leadsBody");
+    const colCount = MULTI ? 7 : 6;
+    if (!data.leads || !data.leads.length) {
+      body.innerHTML = `<tr class="empty-row"><td colspan="${colCount}">No leads in this view yet.</td></tr>`;
+      return;
+    }
+    const sourceCol = MULTI ? r => `<td>${r.SourceName || r.Source || "–"}</td>` : () => "";
+    body.innerHTML = data.leads.map(r => `
+      <tr>
+        <td>@${r.Username || "–"}</td>
+        <td>${statusBadge(r["Automation Status"])}</td>
+        <td>${(r["Final Message"] || r["Template Used"] || "–").toString().slice(0, 60)}</td>
+        <td class="mono">${fmtTime(r["Message Sent At"])}</td>
+        <td>${badge((r["Seen Status"] || "–"), r["Seen Status"] === "SEEN" ? "ok" : "neutral")}</td>
+        <td>${r["Reply Status"] || r["Filtered Reason"] || r["Last Error"] || "–"}</td>
+        ${sourceCol(r)}
+      </tr>`).join("");
+    const el = document.querySelector(`[data-count="${activeTab}"]`);
+    if (el) el.textContent = data.count;
+  } catch (e) { /* ignore, next poll will retry */ }
+}
+
+async function refreshLog() {
+  try {
+    const res = await fetch("/api/log?lines=120");
+    const data = await res.json();
+    const panel = document.getElementById("logPanel");
+    const atBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 20;
+    panel.innerHTML = data.lines.map(line => {
+      let cls = "";
+      if (/ ERROR /.test(line)) cls = "err";
+      else if (/ WARNING /.test(line)) cls = "warn";
+      else if (/verified|accepted|sent and verified|auto-accepted/i.test(line)) cls = "ok";
+      const m = line.match(/^(\S+ \S+)\s(.*)$/);
+      return m ? `<div><span class="t">${m[1]}</span> <span class="${cls}">${m[2]}</span></div>` : `<div>${line}</div>`;
+    }).join("") || "(no log entries yet)";
+    if (atBottom) panel.scrollTop = panel.scrollHeight;
+  } catch (e) { /* ignore */ }
+}
+
+function refreshFast() { refreshState(); refreshLog(); }
+function refreshExcelData() { refreshStats(); loadLeads(); if (diagPanelIsOpen()) loadDiagBreakdown(); }
+function refreshAll() { refreshFast(); refreshExcelData(); }
+
+async function init() {
+  try {
+    const res = await fetch("/api/sources");
+    const data = await res.json();
+    MULTI = !!data.multi;
+    SOURCES = data.sources || [];
+  } catch (e) {
+    MULTI = false; SOURCES = [];
+  }
+  renderStage();
+  refreshAll();
+  setInterval(refreshFast, FAST_REFRESH_MS);
+  setInterval(refreshExcelData, EXCEL_REFRESH_MS);
+}
+
+init();
+</script>
+</body>
+</html>

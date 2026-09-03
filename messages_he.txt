@@ -1,0 +1,15 @@
+# Approved Hebrew outreach messages -- used only when a lead's "Language Override" column is
+# set to HEB. These are sent as-is (no machine translation). Same GEN/PER format and
+# placeholders as messages.txt. Edit freely.
+
+GEN היי, מה שלומך?
+GEN היי, מקווה שהיום שלך עובר טוב
+GEN היי, רק רציתי להגיד שלום
+GEN היי, מה קורה?
+GEN היי, מקווה שהכל בסדר אצלך
+
+PER היי _____, מה שלומך?
+PER היי _____, מקווה שהיום שלך עובר טוב
+PER היי _____, ראיתי שאתה ב-{{city}}. מה שלומך?
+PER היי _____, מקווה שהכל בסדר אצלך
+PER היי _____, מה קורה?

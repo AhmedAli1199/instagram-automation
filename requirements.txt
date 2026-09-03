@@ -1,0 +1,25 @@
+# Pinned to the exact versions verified working in real, live runs (real logins, real
+# follows/DMs sent successfully). Earlier unbounded minimum-version pins (e.g. "instagrapi>=2.1")
+# let a fresh install pull in a newer instagrapi release than this project was built against --
+# that's what caused pydantic ValidationErrors on Amit's machine (a newer instagrapi/pydantic
+# combination requiring response fields Instagram's real API doesn't always send, breaking every
+# relationship/profile check). Exact pins prevent that kind of silent version drift on any future
+# fresh install.
+instagrapi==2.18.18
+# instagrapi depends on pydantic but doesn't pin it tightly enough on its own to prevent drift --
+# pinned explicitly here for the same reason as instagrapi itself above.
+pydantic==2.13.5
+openpyxl==3.1.5
+python-dotenv==1.2.2
+langdetect==1.0.9
+deep-translator==1.11.4
+filelock==3.32.4
+# Windows doesn't ship the IANA timezone database Python's zoneinfo needs (e.g. Asia/Jerusalem
+# for TIMEZONE / operating hours) -- without this, the automation errors out with
+# "No time zone found with key ...". Harmless/no-op on macOS/Linux, which already have it.
+tzdata==2026.3
+
+# Optional, only needed to run fetch_login_cookie.py (one-time Instagram login helper):
+#   pip install playwright
+#   playwright install chromium
+# playwright>=1.45

@@ -1,0 +1,28 @@
+# Approved English outreach messages.
+# GEN = generic, sent when we don't have a real, usable person's first name to personalize with.
+# PER = personalized, uses _____ for first name and/or {{city}} / {{location}} for city.
+# One message per line. The automation picks randomly among the ones that fit each lead.
+# Edit freely -- add, remove, or reword lines. Keep the GEN / PER prefix and, for PER lines
+# that use them, keep the _____ and {{city}}/{{location}} placeholders exactly as written.
+
+GEN Hey! How are you doing?
+GEN Hi there, hope you're having a good day!
+GEN Hey, hope all is well with you :)
+GEN Hi! Just wanted to say hey.
+GEN Hey, how's it going?
+GEN Hi, hope you're doing well today.
+GEN Hey there, hope you're having a great week.
+GEN Hi! Hope everything's good on your end.
+GEN Hey, just stopping by to say hi!
+GEN Hi, hope you're keeping well.
+
+PER Hey _____, how are you doing?
+PER Hi _____, hope you're having a good day!
+PER Hey _____, hope all is well with you :)
+PER Hi _____! Just wanted to say hey.
+PER Hey _____, how's it going?
+PER Hi _____, hope you're doing well today.
+PER Hey _____, I saw you're in {{city}}. How are you?
+PER Hi _____, I noticed you're currently in {{location}}. Hope you're doing great!
+PER Hey _____, hope you're having a great time in {{city}}!
+PER Hi _____, hope everything's good on your end.

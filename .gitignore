@@ -1,0 +1,37 @@
+# Real credentials -- never commit. Amit's/your real .env has live Instagram username, password,
+# and session cookie in plain text. Only .env.example (the template) is tracked.
+.env
+
+# Live Instagram session -- a real, valid authentication token. Committing this is equivalent to
+# committing a password. See the earlier "wrong account" incident this project already had once
+# from a stray copy of this exact file.
+instagram_session.json
+
+# Lead data -- your own and any salesperson's real workbooks/exports. Never shared between
+# machines via git; each deployment brings its own.
+*.xlsx
+*.xls
+*.csv
+!messages.txt
+!messages_he.txt
+
+# Progress/state -- pointers, daily-cap timers, pause state. Machine-specific, regenerated
+# automatically; committing it would make a fresh clone think it already processed real leads.
+state.txt
+state_sales_*.txt
+global_state.txt
+
+# Process locks -- meaningless outside the process that created them.
+app.lock
+action.lock
+
+# Logs -- regenerate automatically, not meant to be versioned.
+logs/
+
+# Python bytecode cache.
+__pycache__/
+*.pyc
+
+# Packaging/distribution artifacts already made from this project -- not source.
+*.zip
+insta automation.zip
