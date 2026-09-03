@@ -1,9 +1,10 @@
 # Approved English outreach messages.
 # GEN = generic, sent when we don't have a real, usable person's first name to personalize with.
-# PER = personalized, uses _____ for first name and/or {{city}} / {{location}} for city.
+# PER = personalized, uses {{name}} for first name and/or {{city}} / {{location}} for city.
 # One message per line. The automation picks randomly among the ones that fit each lead.
 # Edit freely -- add, remove, or reword lines. Keep the GEN / PER prefix and, for PER lines
-# that use them, keep the _____ and {{city}}/{{location}} placeholders exactly as written.
+# that use them, keep the {{name}} and {{city}}/{{location}} placeholders exactly as written
+# (double curly braces, exact spelling -- e.g. {{name}} not {{Name}} or {name}).
 
 GEN Hey! How are you doing?
 GEN Hi there, hope you're having a good day!
@@ -16,13 +17,13 @@ GEN Hi! Hope everything's good on your end.
 GEN Hey, just stopping by to say hi!
 GEN Hi, hope you're keeping well.
 
-PER Hey _____, how are you doing?
-PER Hi _____, hope you're having a good day!
-PER Hey _____, hope all is well with you :)
-PER Hi _____! Just wanted to say hey.
-PER Hey _____, how's it going?
-PER Hi _____, hope you're doing well today.
-PER Hey _____, I saw you're in {{city}}. How are you?
-PER Hi _____, I noticed you're currently in {{location}}. Hope you're doing great!
-PER Hey _____, hope you're having a great time in {{city}}!
-PER Hi _____, hope everything's good on your end.
+PER Hey {{name}}, how are you doing?
+PER Hi {{name}}, hope you're having a good day!
+PER Hey {{name}}, hope all is well with you :)
+PER Hi {{name}}! Just wanted to say hey.
+PER Hey {{name}}, how's it going?
+PER Hi {{name}}, hope you're doing well today.
+PER Hey {{name}}, I saw you're in {{city}}. How are you?
+PER Hi {{name}}, I noticed you're currently in {{location}}. Hope you're doing great!
+PER Hey {{name}}, hope you're having a great time in {{city}}!
+PER Hi {{name}}, hope everything's good on your end.
