@@ -77,7 +77,11 @@ def run(limit=1, source=None):
                 if ig.verify_follow(lead["username"]):
                     _record_follow_outcome(store,lead["row"],ig,lead["username"],datetime.now(timezone.utc),"FOLLOW_RECOVERED_VERIFIED"); _schedule_next(datetime.now(timezone.utc)); followed+=1
                 else:
-                    store.update(lead["row"], **{"Automation Status":"PROCESSING","Follow Status":"RETRY_QUEUED","Retry Count":1,"Last Automation Action":"FOLLOW_RECOVERY_CONFIRMED_NOT_SENT"})
+                    # Confirmed the earlier attempt never actually reached Instagram -- clear the
+                    # optimistic "Follow Requested At" stamp from that attempt so this retry
+                    # doesn't keep consuming a slot against today's cap for a follow that was
+                    # never sent.
+                    store.update(lead["row"], **{"Automation Status":"PROCESSING","Follow Status":"RETRY_QUEUED","Follow Requested At":"","Retry Count":1,"Last Automation Action":"FOLLOW_RECOVERY_CONFIRMED_NOT_SENT"})
             except InstagramSessionError:
                 raise
             except Exception as exc:
@@ -103,8 +107,18 @@ def run(limit=1, source=None):
                 store.update(lead["row"], **{**start_follow_back_wait(now),"Follow Status":"ACCEPTED","Follow Accepted At":now.isoformat(),"Last Automation Action":"ALREADY_FOLLOWING"}); continue
             if rel.get("outgoing_request"):
                 _record_follow_outcome(store,lead["row"],ig,lead["username"],datetime.now(timezone.utc),"ALREADY_PENDING"); continue
-            store.update(lead["row"], **{"Follow Status":"FOLLOW_STARTING","Last Automation Action":"FOLLOW_STARTING"})
+            # "Follow Requested At" is stamped HERE, before the outward ig.follow() call below,
+            # not after verification succeeds. The real Instagram action happens at ig.follow() --
+            # if the process crashes/restarts between here and verification, the follow may
+            # already be sent, but with the timestamp only written on success this row stayed
+            # invisible to shared_today_count() until a later cycle's FOLLOW_STARTING recovery
+            # branch verified and finally recorded it. In that gap, remaining looked one slot
+            # higher than reality and let one extra real follow through elsewhere -- which is how
+            # the daily cap ended up sending 13 real follows against a limit of 12. Stamping it
+            # immediately means every attempt counts against the cap the instant it's made,
+            # crash or no crash.
             attempt_at=datetime.now(timezone.utc)
+            store.update(lead["row"], **{"Follow Status":"FOLLOW_STARTING","Follow Requested At":attempt_at.isoformat(),"Last Automation Action":"FOLLOW_STARTING"})
             try:
                 returned=ig.follow(lead["username"])
                 time.sleep(1)
