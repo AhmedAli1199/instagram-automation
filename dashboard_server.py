@@ -162,7 +162,11 @@ def status_of(row, key):
 
 TAB_FILTERS = {
     "dmed_today": lambda r: is_today(r.get("Message Sent At")),
-    "followed_today": lambda r: is_today(r.get("Follow Requested At")) or is_today(r.get("Follow Accepted At")),
+    # Must match the same "today" the daily cap is enforced against (shared_today_count on
+    # "Follow Requested At" in follow_worker.run) -- counting Follow Accepted At here too let a
+    # lead requested yesterday and approved today re-count today, showing more than the actual
+    # cap (e.g. "13 of 12").
+    "followed_today": lambda r: is_today(r.get("Follow Requested At")),
     "replied": lambda r: status_of(r, "Reply Status") in ("REPLIED", "REPLIED_LATE"),
     "processing": lambda r: status_of(r, "Automation Status") == "PROCESSING",
     "waiting_approval": lambda r: status_of(r, "Automation Status") == "WAITING_FOLLOW_APPROVAL",
