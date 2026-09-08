@@ -4,6 +4,7 @@ from config import settings, get_salespeople
 from excel_store import ExcelStore
 from instagram_action_client import InstagramActionClient, InstagramProfileNotFound, InstagramSessionError
 from state_store import pause_requested, outward_action_lock
+from .common import start_follow_back_wait
 
 logger = logging.getLogger(__name__)
 
@@ -63,13 +64,34 @@ def run(source=None):
     for lead in store.priority_rows():
         if pause_requested(): break
         data = store.get_row(lead["row"])
-        if data.get("Automation Status") not in ("WAITING_FOLLOW_BACK", "READY_TO_MESSAGE"): continue
+        auto_status = data.get("Automation Status")
+        follow_status = str(data.get("Follow Status") or "").upper()
         fb_status = str(data.get("Follow Back Status") or "").upper()
-        # Only rows this feature actually put in play (has a Follow Back Status) -- a
-        # READY_TO_MESSAGE row from a path that predates this feature, or one that reached
-        # READY_TO_MESSAGE through some other route entirely, has no Follow Back Status at all and
-        # is correctly left alone rather than being pulled into 7-day cleanup on missing data.
-        if not fb_status: continue
+        reply_status = str(data.get("Reply Status") or "").upper()
+
+        if not fb_status:
+            # BACKFILL: a lead followed BEFORE this feature shipped never had Follow Back Status
+            # set at all, and used to be skipped here forever as a result -- reported as "keeps
+            # following new people but never unfollows old ones". Any lead we're currently
+            # following, not already resolved (replied / do-not-refollow), with a real Follow
+            # Requested At to compute deadlines from, gets backfilled into this tracking using
+            # that ORIGINAL timestamp as T0 (not "now" -- an old follow must not get a fresh
+            # 72h/168h clock just because we only just noticed it) and falls through to be
+            # evaluated on this very same pass, exactly as if it had gone through the new
+            # pipeline from the start.
+            if follow_status != "ACCEPTED": continue  # not currently following -- nothing to evaluate
+            if store.do_not_refollow(lead["row"]): continue
+            if reply_status in ("REPLIED", "REPLIED_LATE"): continue  # active conversation, leave it alone
+            requested_at = parse_dt(data.get("Follow Requested At"))
+            if not requested_at: continue  # no timestamp to compute a deadline from
+            backfill = start_follow_back_wait(requested_at)
+            del backfill["Automation Status"]  # don't force MESSAGE_SENT/etc back to WAITING_FOLLOW_BACK
+            store.update(lead["row"], **backfill)
+            data = {**data, **backfill}
+            fb_status = "WAITING"
+            logger.info("Row %s (@%s): backfilled into follow-back tracking (pre-dates this feature), Follow Requested At=%s", lead["row"], lead["username"], requested_at.isoformat())
+        elif auto_status not in ("WAITING_FOLLOW_BACK", "READY_TO_MESSAGE", "MESSAGE_SENT"):
+            continue
         if fb_status in ("EXPIRED_NO_RETURN",): continue  # 7-day cleanup already ran
         last = parse_dt(data.get("Last Checked At"))
         if last and now - last < interval: continue
@@ -99,6 +121,13 @@ def run(source=None):
         # status alone can't tell "never triggered yet" apart from "already triggered, still
         # waiting on the reciprocal follow".
         already_triggered = bool(data.get("Message Trigger"))
+        # A backfilled legacy lead can already have a real message sent under the old pipeline
+        # (Message Status=SENT) despite never having a Message Trigger -- must NOT be treated as
+        # "first time detected, needs a DM" in that case (that would flip Automation Status back
+        # to READY_TO_MESSAGE for a lead that's actually done, though Message Status=SENT would
+        # still correctly block message_prepare_worker/message_sender from re-sending -- this
+        # keeps the displayed status accurate too, not just the send behavior safe).
+        already_messaged = str(data.get("Message Status") or "").upper() in ("SENT", "SENDING", "UNCERTAIN")
 
         # 168-hour deadline takes priority over everything else -- a final live check right now,
         # regardless of what Follow Back Status currently says.
@@ -111,7 +140,7 @@ def run(source=None):
                 continue
             _attempt_unfollow(store, ig, lead, now); continue
 
-        if followed_back and not already_triggered:
+        if followed_back and not already_triggered and not already_messaged:
             # Early (or on-time) return-follow, first time detected. Don't jump straight to
             # READY_TO_MESSAGE -- give the relationship state the short stabilization delay from
             # spec before the lead becomes DM-eligible.
@@ -125,7 +154,7 @@ def run(source=None):
             logger.info("Row %s (@%s): follow-back received, DM eligible at %s", lead["row"], lead["username"], eligible_at.isoformat())
             continue
 
-        if not followed_back and not already_triggered and fallback_at and now >= fallback_at:
+        if not followed_back and not already_triggered and not already_messaged and fallback_at and now >= fallback_at:
             # Y elapsed with no follow-back -- exactly one proactive DM, follow-back status stays
             # WAITING (monitoring continues; a later follow-back is still recorded below, it just
             # never triggers a second message).
