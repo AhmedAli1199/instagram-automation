@@ -170,6 +170,7 @@ TAB_FILTERS = {
     "manual_review": lambda r: status_of(r, "Automation Status") == "MANUAL_REVIEW",
     "filtered": lambda r: status_of(r, "Automation Status") == "FILTERED",
     "sent": lambda r: status_of(r, "Message Status") == "SENT",
+    "followed_all": lambda r: bool(r.get("Follow Requested At")),
 }
 
 TAB_COLUMNS = ["Username", "Automation Status", "Follow Status", "Message Status",
@@ -232,7 +233,19 @@ def build_stats(rows, shared_dmed_today=None, shared_followed_today=None):
     msgs_from_follow_back = sum(1 for r in rows if status_of(r, "Message Trigger") == "FOLLOW_BACK")
     msgs_from_y_timeout = sum(1 for r in rows if status_of(r, "Message Trigger") == "Y_TIMEOUT_PROACTIVE")
     no_follow_back_7d = sum(1 for r in rows if status_of(r, "Follow Back Status") == "EXPIRED_NO_RETURN")
-    unfollowed_7d = sum(1 for r in rows if status_of(r, "Follow Cleanup Reason") == "NO_FOLLOW_BACK_7_DAYS")
+    # BUG FIXED: this used to count ONLY "Follow Cleanup Reason" == NO_FOLLOW_BACK_7_DAYS, which
+    # is set exclusively by follow_back_monitor.py's newer no-followback cleanup path.
+    # cleanup_worker.py's older, separate no-reply cleanup path ALSO sets Follow Status=UNFOLLOWED
+    # (it's a real, different unfollow reason -- messaged, seen/unseen, no reply within
+    # SEEN_NO_REPLY_HOURS/UNSEEN_EXPIRY_DAYS) but never touches Follow Cleanup Reason at all. So
+    # any unfollow that happened via THAT path was invisible to this tile -- it stayed 0 even
+    # while the Diagnostics panel's generic "Follow Status" breakdown correctly showed UNFOLLOWED
+    # rows, because that breakdown counts Follow Status directly rather than this one narrower
+    # field. Counting Follow Status == UNFOLLOWED here instead makes this tile match Diagnostics
+    # exactly, regardless of which of the two cleanup paths did the unfollowing.
+    unfollowed_total = sum(1 for r in rows if status_of(r, "Follow Status") == "UNFOLLOWED")
+    unfollowed_no_follow_back = sum(1 for r in rows if status_of(r, "Follow Cleanup Reason") == "NO_FOLLOW_BACK_7_DAYS")
+    unfollowed_no_reply = sum(1 for r in rows if status_of(r, "Follow Status") == "UNFOLLOWED" and status_of(r, "Filtered Reason") in ("SEEN_NO_REPLY", "UNSEEN_7_DAYS"))
     follow_back = {
         "follow_sent": follow_sent,
         "waiting_follow_back": funnel["waiting_follow_back"],
@@ -244,7 +257,9 @@ def build_stats(rows, shared_dmed_today=None, shared_followed_today=None):
         "proactive_y_dm_rate": round(msgs_from_y_timeout / follow_sent, 3) if follow_sent else 0,
         "no_follow_back_7d": no_follow_back_7d,
         "no_follow_back_7d_rate": round(no_follow_back_7d / follow_sent, 3) if follow_sent else 0,
-        "unfollowed_7d": unfollowed_7d,
+        "unfollowed_7d": unfollowed_total,
+        "unfollowed_no_follow_back": unfollowed_no_follow_back,
+        "unfollowed_no_reply": unfollowed_no_reply,
     }
     return {
         "followed_today": followed_today,

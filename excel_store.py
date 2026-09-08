@@ -22,6 +22,9 @@ AUTOMATION_HEADERS = [
     # Follow-Back Timing V2 -- see workers/follow_back_monitor.py.
     "Follow Back Status","Follow Back At","Message Fallback At","Message Eligible At",
     "Message Trigger","Follow Back Deadline At","Follow Cleanup Reason","Unfollowed At",
+    # Final pre-DM follow-check -- see message_sender.py. Dedicated counter, deliberately not
+    # sharing "Retry Count" (that field is reset by unrelated events).
+    "Follow Lost Count",
 ]
 
 NO_REFOLLOW_REASONS = {

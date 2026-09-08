@@ -36,6 +36,13 @@
   .concept { display: none; }
   .concept.is-active { display: block; }
   .empty-row td { text-align: center; opacity: .6; padding: 22px !important; }
+  /* Generic across all 3 themes -- inherits --panel/--border/--ink/--accent/--muted from whichever
+     [data-concept] ancestor is active, same as every other themed element. */
+  .filter-input { display: block; width: 100%; box-sizing: border-box; margin: 0 0 12px; padding: 9px 12px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px; color: var(--ink);
+    font-family: inherit; font-size: 13px; }
+  .filter-input::placeholder { color: var(--muted); }
+  .filter-input:focus { outline: none; border-color: var(--accent); }
 
   /* ===================== OPS DECK ===================== */
   [data-concept="ops"] {
@@ -266,6 +273,7 @@ const TABS = [
   ["manual_review", "Manual review"],
   ["filtered", "Filtered"],
   ["sent", "Sent (all)"],
+  ["followed_all", "Followed (all)"],
 ];
 
 let currentTheme = localStorage.getItem("cc_theme") || "ops";
@@ -337,7 +345,7 @@ function dashboardMarkup() {
       <div class="stat"><div class="label">Early follow-back DMs</div><div class="num" id="fbEarlyDms">–</div><div class="sub" id="fbEarlyRateSub">–</div></div>
       <div class="stat"><div class="label">Proactive Y-timeout DMs</div><div class="num" id="fbYDms">–</div><div class="sub" id="fbYRateSub">–</div></div>
       <div class="stat warn"><div class="label">No follow-back (7d)</div><div class="num" id="fbNoReturn">–</div><div class="sub" id="fbNoReturnRateSub">–</div></div>
-      <div class="stat warn"><div class="label">Unfollowed (7d)</div><div class="num" id="fbUnfollowed">–</div><div class="sub">cleanup ran</div></div>
+      <div class="stat warn"><div class="label">Unfollowed (total)</div><div class="num" id="fbUnfollowed">–</div><div class="sub" id="fbUnfollowedSub">cleanup ran</div></div>
     </div>
 
     <button class="diag-toggle" id="diagToggle">Diagnostics: every internal queue ▾</button>
@@ -346,6 +354,7 @@ function dashboardMarkup() {
       <div id="diagBreakdown">Loading…</div>
       <p class="panel-title" id="diagLeadsTitle" style="display:none;">Leads in this bucket</p>
       <div class="panel" id="diagLeadsPanel" style="display:none;">
+        <input type="text" class="filter-input" id="diagLeadsFilter" placeholder="Filter these leads (any column)…">
         <div class="table-wrap">
           <table>
             <thead><tr><th>Username</th><th>Automation Status</th><th>Follow Status</th><th>Already Following</th><th>Follow Requested</th><th>Follow Accepted</th><th>Message Status</th><th>Last Action</th><th>Notes / Error</th></tr></thead>
@@ -357,6 +366,7 @@ function dashboardMarkup() {
 
     <p class="panel-title">Leads</p>
     <div class="tabs">${tabsHtml}</div>
+    <input type="text" class="filter-input" id="leadsFilter" placeholder="Filter leads (username, status, message, reason…)">
     <div class="panel">
       <div class="table-wrap">
         <table>
@@ -391,7 +401,7 @@ function statusBadge(status) {
   const s = (status || "").toUpperCase();
   const map = {
     "MESSAGE_SENT": "ok", "READY_TO_MESSAGE": "ok", "WAITING_FOLLOW_APPROVAL": "warn",
-    "WAITING_FOLLOW_BACK": "warn",
+    "WAITING_FOLLOW_BACK": "warn", "PRIORITY_WAITING": "ok",
     "PROCESSING": "neutral", "MANUAL_REVIEW": "warn", "MANUAL_CONVERSATION": "ok",
     "FILTERED": "crit",
   };
@@ -479,6 +489,10 @@ function wireStage() {
       if (opening) loadDiagBreakdown();
     };
   }
+  const leadsFilter = document.getElementById("leadsFilter");
+  if (leadsFilter) leadsFilter.oninput = renderLeadsTable;
+  const diagLeadsFilter = document.getElementById("diagLeadsFilter");
+  if (diagLeadsFilter) diagLeadsFilter.oninput = renderDiagLeadsTable;
 }
 
 function diagPanelIsOpen() {
@@ -509,6 +523,32 @@ async function loadDiagBreakdown() {
   }
 }
 
+let lastDiagLeadsData = [];
+
+function renderDiagLeadsTable() {
+  const body = document.getElementById("diagLeadsBody");
+  const filterEl = document.getElementById("diagLeadsFilter");
+  if (!body) return;
+  const needle = (filterEl?.value || "").trim();
+  const rows = lastDiagLeadsData.filter(r => rowMatchesFilter(r, needle));
+  if (!rows.length) {
+    body.innerHTML = `<tr class="empty-row"><td colspan="9">${lastDiagLeadsData.length ? "No leads match this filter." : "No leads in this bucket."}</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map(r => `
+    <tr>
+      <td>@${r.Username || "–"}${MULTI ? " · " + (r.SourceName || r.Source || "") : ""}</td>
+      <td>${r["Automation Status"] || "–"}</td>
+      <td>${r["Follow Status"] || "–"}</td>
+      <td>${r["Already Following"] || "–"}</td>
+      <td class="mono">${fmtTime(r["Follow Requested At"])}</td>
+      <td class="mono">${fmtTime(r["Follow Accepted At"])}</td>
+      <td>${r["Message Status"] || "–"}</td>
+      <td>${r["Last Automation Action"] || "–"}</td>
+      <td>${(r["Automation Notes"] || r["Last Error"] || r["Filtered Reason"] || "–").toString().slice(0, 80)}</td>
+    </tr>`).join("");
+}
+
 async function loadDiagLeads(field, value) {
   const title = document.getElementById("diagLeadsTitle");
   const panel = document.getElementById("diagLeadsPanel");
@@ -520,22 +560,10 @@ async function loadDiagLeads(field, value) {
     const srcParam = MULTI ? `&source=${activeSource}` : "";
     const res = await fetch(`/api/leads?field=${encodeURIComponent(field)}&value=${encodeURIComponent(value)}${srcParam}`);
     const data = await res.json();
-    if (!data.leads || !data.leads.length) {
-      body.innerHTML = `<tr class="empty-row"><td colspan="9">No leads in this bucket.</td></tr>`;
-      return;
-    }
-    body.innerHTML = data.leads.map(r => `
-      <tr>
-        <td>@${r.Username || "–"}${MULTI ? " · " + (r.SourceName || r.Source || "") : ""}</td>
-        <td>${r["Automation Status"] || "–"}</td>
-        <td>${r["Follow Status"] || "–"}</td>
-        <td>${r["Already Following"] || "–"}</td>
-        <td class="mono">${fmtTime(r["Follow Requested At"])}</td>
-        <td class="mono">${fmtTime(r["Follow Accepted At"])}</td>
-        <td>${r["Message Status"] || "–"}</td>
-        <td>${r["Last Automation Action"] || "–"}</td>
-        <td>${(r["Automation Notes"] || r["Last Error"] || r["Filtered Reason"] || "–").toString().slice(0, 80)}</td>
-      </tr>`).join("");
+    lastDiagLeadsData = data.leads || [];
+    const filterEl = document.getElementById("diagLeadsFilter");
+    if (filterEl) filterEl.value = "";
+    renderDiagLeadsTable();
   } catch (e) {
     body.innerHTML = `<tr class="empty-row"><td colspan="9">Could not load leads.</td></tr>`;
   }
@@ -607,6 +635,8 @@ async function refreshStats() {
     document.getElementById("fbNoReturn").textContent = fb.no_follow_back_7d ?? "–";
     document.getElementById("fbNoReturnRateSub").textContent = `${pct(fb.no_follow_back_7d_rate)} of follows sent`;
     document.getElementById("fbUnfollowed").textContent = fb.unfollowed_7d ?? "–";
+    document.getElementById("fbUnfollowedSub").textContent =
+      `${fb.unfollowed_no_follow_back ?? 0} no follow-back, ${fb.unfollowed_no_reply ?? 0} no reply`;
     const counts = { dmed_today: s.dmed_today, followed_today: s.followed_today, replied: s.replies,
                       waiting_approval: s.funnel.waiting_approval, manual_review: s.manual_review, filtered: s.filtered };
     Object.entries(counts).forEach(([k, v]) => {
@@ -616,19 +646,30 @@ async function refreshStats() {
   } catch (e) { /* connection status already shown by refreshState */ }
 }
 
-async function loadLeads() {
-  try {
-    const srcParam = MULTI ? `&source=${activeSource}` : "";
-    const res = await fetch(`/api/leads?tab=${activeTab}${srcParam}`);
-    const data = await res.json();
-    const body = document.getElementById("leadsBody");
-    const colCount = MULTI ? 7 : 6;
-    if (!data.leads || !data.leads.length) {
-      body.innerHTML = `<tr class="empty-row"><td colspan="${colCount}">No leads in this view yet.</td></tr>`;
-      return;
-    }
+// Client-side filtering: every table already loads a bounded batch (<=200 rows) from the
+// backend, so filtering what's already in the browser -- across every column, not just one --
+// is simpler and more robust than adding server-side query params for every list, and works
+// identically on the main leads table, the diagnostics drill-down, and any future table.
+function rowMatchesFilter(row, needle) {
+  if (!needle) return true;
+  const n = needle.toLowerCase();
+  return Object.values(row).some(v => v != null && String(v).toLowerCase().includes(n));
+}
+
+let lastLeadsData = [];
+
+function renderLeadsTable() {
+  const body = document.getElementById("leadsBody");
+  const filterEl = document.getElementById("leadsFilter");
+  if (!body) return;
+  const needle = (filterEl?.value || "").trim();
+  const rows = lastLeadsData.filter(r => rowMatchesFilter(r, needle));
+  const colCount = MULTI ? 7 : 6;
+  if (!rows.length) {
+    body.innerHTML = `<tr class="empty-row"><td colspan="${colCount}">${lastLeadsData.length ? "No leads match this filter." : "No leads in this view yet."}</td></tr>`;
+  } else {
     const sourceCol = MULTI ? r => `<td>${r.SourceName || r.Source || "–"}</td>` : () => "";
-    body.innerHTML = data.leads.map(r => `
+    body.innerHTML = rows.map(r => `
       <tr>
         <td>@${r.Username || "–"}</td>
         <td>${statusBadge(r["Automation Status"])}</td>
@@ -638,8 +679,18 @@ async function loadLeads() {
         <td>${r["Reply Status"] || r["Filtered Reason"] || r["Last Error"] || "–"}</td>
         ${sourceCol(r)}
       </tr>`).join("");
-    const el = document.querySelector(`[data-count="${activeTab}"]`);
-    if (el) el.textContent = data.count;
+  }
+  const el = document.querySelector(`[data-count="${activeTab}"]`);
+  if (el) el.textContent = needle ? `${rows.length}/${lastLeadsData.length}` : lastLeadsData.length;
+}
+
+async function loadLeads() {
+  try {
+    const srcParam = MULTI ? `&source=${activeSource}` : "";
+    const res = await fetch(`/api/leads?tab=${activeTab}${srcParam}`);
+    const data = await res.json();
+    lastLeadsData = data.leads || [];
+    renderLeadsTable();
   } catch (e) { /* ignore, next poll will retry */ }
 }
 

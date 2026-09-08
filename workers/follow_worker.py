@@ -53,7 +53,7 @@ def run(limit=1, source=None):
     # to the Instagram account, not to any one salesperson's workbook.
     remaining=settings.daily_follow_limit-shared_today_count("Follow Requested At", get_salespeople())
     if remaining<=0:
-        logger.info("follow_worker[%s]: daily follow limit (%d) reached", tag, settings.daily_follow_limit)
+        logger.info("follow_worker[%s]: daily follow limit (%d) reached -- pausing NEW follows only; every other worker continues normally this cycle", tag, settings.daily_follow_limit)
         return {"followed":0,"limit_reached":True,"source":tag}
     not_before=parse_dt(load_state().get("NEXT_FOLLOW_NOT_BEFORE")); now=datetime.now(timezone.utc)
     if not_before and now<not_before:

@@ -94,7 +94,11 @@ def run(limit=None, source=None):
     limit=limit or settings.profile_batch_limit
     tag=source["id"]
     if not _capacity_available(store):
-        logger.info("profile_processor[%s]: daily/buffer capacity reached, skipping this cycle", tag)
+        # "this cycle" here means only profile_processor's OWN intake for this one worker call --
+        # every other worker (follow-back monitoring, reply/seen checks, 7-day unfollow cleanup,
+        # dashboard reads) still runs this same cycle regardless. Worded explicitly below after
+        # this exact phrase was read as "the whole scheduler stopped."
+        logger.info("profile_processor[%s]: daily/buffer capacity reached -- pausing NEW profile intake only; follow-back monitoring, reply/seen checks, and 7-day unfollow cleanup are unaffected and continue normally", tag)
         return {"processed":0,"capacity_satisfied":True,"source":tag}
     dupes=store.duplicate_user_ids(); ig=InstagramActionClient(); processed=0
 

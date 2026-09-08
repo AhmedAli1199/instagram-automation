@@ -64,6 +64,19 @@ class Settings:
     follow_back_dm_delay_minutes: float = float(os.getenv("FOLLOW_BACK_DM_DELAY_MINUTES", "10"))
     follow_back_timeout_hours: float = float(os.getenv("FOLLOW_BACK_TIMEOUT_HOURS", "168"))
     follow_back_check_interval_minutes: float = float(os.getenv("FOLLOW_BACK_CHECK_INTERVAL_MINUTES", "10"))
+    # A real follow-back is a rare, time-sensitive signal (someone just reciprocated -- the
+    # stabilization delay is only 10 minutes) worth a small number of extra sends beyond the
+    # normal daily cap, but Y_TIMEOUT_PROACTIVE messages (the "gave up waiting" fallback) are not
+    # -- those stay capped at the normal daily_message_limit exactly as before. 0 disables the
+    # overflow entirely (equivalent to today's behavior).
+    follow_back_priority_dm_overflow: int = int(os.getenv("FOLLOW_BACK_PRIORITY_DM_OVERFLOW", "1"))
+    # If the final follow-check immediately before sending a DM finds we're no longer following
+    # the lead, it's routed back through the normal follow pipeline for a fresh attempt (see
+    # message_sender.py) rather than sent to or permanently abandoned. This caps how many times
+    # that can happen for the same lead before giving up and routing to MANUAL_REVIEW instead --
+    # protects against a lead that keeps oscillating (blocks/unfollows us repeatedly) looping
+    # forever.
+    follow_lost_max_retries: int = int(os.getenv("FOLLOW_LOST_MAX_RETRIES", "2"))
 
     # --- Multi-salesperson mode -------------------------------------------------------------
     # Off by default: with MULTI_SALESPERSON unset/false, get_salespeople() below returns a
