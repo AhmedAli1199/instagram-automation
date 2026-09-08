@@ -60,15 +60,9 @@ class Settings:
     # follow_back_timeout_hours from the *original* Follow Requested At, the lead is unfollowed.
     # Global/shared across SP1-3, same as every other account-level setting.
     #
-    # follow_back_timeout_hours was originally specced/shipped at 168h (7 days, "the hard
-    # deadline"). Cut to 72h (3 days) on 2026-09-08 at Amit's explicit request -- the 7-day
-    # backlog from a freshly-shipped feature (most follows not yet old enough to be eligible for
-    # cleanup at all) read as "unfollow isn't working" from the outside. Both cleanup workers
-    # already process every eligible row every single cycle with no batch limit -- there was no
-    # actual throughput problem to fix, only the eligibility window itself.
     follow_back_wait_hours: float = float(os.getenv("FOLLOW_BACK_WAIT_HOURS", "24"))
     follow_back_dm_delay_minutes: float = float(os.getenv("FOLLOW_BACK_DM_DELAY_MINUTES", "10"))
-    follow_back_timeout_hours: float = float(os.getenv("FOLLOW_BACK_TIMEOUT_HOURS", "72"))
+    follow_back_timeout_hours: float = float(os.getenv("FOLLOW_BACK_TIMEOUT_HOURS", "168"))
     follow_back_check_interval_minutes: float = float(os.getenv("FOLLOW_BACK_CHECK_INTERVAL_MINUTES", "10"))
 
     # --- Multi-salesperson mode -------------------------------------------------------------
