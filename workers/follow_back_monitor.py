@@ -38,6 +38,13 @@ def _attempt_unfollow(store, ig, lead, now):
             return False
     if verified:
         store.update(lead["row"], **{
+            # Automation Status was NOT being updated here before -- a fully-resolved (unfollowed)
+            # lead stayed showing WAITING_FOLLOW_BACK forever, which read as "still waiting" even
+            # though cleanup had already completed. FILTERED matches the exact same convention
+            # cleanup_worker.py's own (older) no-reply unfollow path already uses -- both mean
+            # "this lead is done, no further automation" and are already correctly excluded from
+            # every other worker via NO_REFOLLOW_STATUSES in excel_store.py.
+            "Automation Status": "FILTERED",
             "Follow Status": "UNFOLLOWED", "Follow Back Status": "EXPIRED_NO_RETURN",
             "Follow Cleanup Reason": "NO_FOLLOW_BACK_7_DAYS", "Unfollowed At": now.isoformat(),
             "Do Not ReFollow": "YES", "Last Error": "", "Last Checked At": now.isoformat(),
@@ -129,17 +136,15 @@ def run(source=None):
         # keeps the displayed status accurate too, not just the send behavior safe).
         already_messaged = str(data.get("Message Status") or "").upper() in ("SENT", "SENDING", "UNCERTAIN")
 
-        # 168-hour deadline takes priority over everything else -- a final live check right now,
-        # regardless of what Follow Back Status currently says.
-        if deadline and now >= deadline:
-            if followed_back:
-                if fb_status != "RECEIVED":
-                    store.update(lead["row"], **{"Follow Back Status": "RECEIVED", "Follow Back At": data.get("Follow Back At") or now.isoformat(), "Last Checked At": now.isoformat(), "Last Automation Action": "FOLLOW_BACK_DEADLINE_CHECK_FOLLOWING"})
-                else:
-                    store.update(lead["row"], **{"Last Checked At": now.isoformat(), "Last Automation Action": "FOLLOW_BACK_DEADLINE_CHECK_FOLLOWING"})
-                continue
-            _attempt_unfollow(store, ig, lead, now); continue
-
+        # ORDER MATTERS HERE: the proactive-DM check (a few lines down) must run BEFORE the
+        # deadline/unfollow check. If a row simply doesn't get evaluated for a while -- scheduler
+        # restarted or paused, a slow cycle, anything that delays its next check -- by the time it
+        # IS finally checked, both "Y hours passed" and "deadline passed" can already be true at
+        # once. Checking the deadline first (as this used to) would unfollow the lead without ever
+        # having given it its one proactive DM -- exactly "no DM sent, then unfollowed", reported
+        # on more than one lead. Checking the Y-timeout DM trigger first guarantees every lead
+        # gets that one message before it can ever be unfollowed for silence, no matter how late
+        # the check happens to land.
         if followed_back and not already_triggered and not already_messaged:
             # Early (or on-time) return-follow, first time detected. Don't jump straight to
             # READY_TO_MESSAGE -- give the relationship state the short stabilization delay from
@@ -165,6 +170,21 @@ def run(source=None):
             })
             logger.info("Row %s (@%s): no follow-back after Y=%.0fh, proactive DM now eligible", lead["row"], lead["username"], settings.follow_back_wait_hours)
             continue
+
+        # Deadline check comes AFTER both DM-trigger checks above (see the ordering note there) --
+        # by the time control reaches here, either this lead already got its one message on an
+        # earlier pass (already_triggered/already_messaged), or it's a legacy/edge case that
+        # genuinely never had a Y window to hit (e.g. followed_back is true and was already
+        # RECEIVED, or Message Fallback At is missing). Never unfollows a lead that hasn't had its
+        # chance at a proactive DM yet.
+        if deadline and now >= deadline:
+            if followed_back:
+                if fb_status != "RECEIVED":
+                    store.update(lead["row"], **{"Follow Back Status": "RECEIVED", "Follow Back At": data.get("Follow Back At") or now.isoformat(), "Last Checked At": now.isoformat(), "Last Automation Action": "FOLLOW_BACK_DEADLINE_CHECK_FOLLOWING"})
+                else:
+                    store.update(lead["row"], **{"Last Checked At": now.isoformat(), "Last Automation Action": "FOLLOW_BACK_DEADLINE_CHECK_FOLLOWING"})
+                continue
+            _attempt_unfollow(store, ig, lead, now); continue
 
         if followed_back and fb_status != "RECEIVED":
             # Late follow-back -- either already_triggered (proactive DM already went out) or a
