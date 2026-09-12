@@ -50,7 +50,10 @@ def _attempt_unfollow(store, ig, lead, now):
             "Do Not ReFollow": "YES", "Last Error": "", "Last Checked At": now.isoformat(),
             "Last Automation Action": "FOLLOW_BACK_CLEANUP_UNFOLLOWED_VERIFIED",
         })
-        logger.info("Row %s (@%s): no follow-back after 7 days, unfollowed (verified)", lead["row"], lead["username"])
+        # Was hardcoded to say "7 days" regardless of the actually configured value -- misleading
+        # when diagnosing this from the log (Amit's real FOLLOW_BACK_TIMEOUT_HOURS was 36, not 168,
+        # so every one of these lines was already wrong before the timing bug above even mattered).
+        logger.info("Row %s (@%s): no follow-back after %.0fh (FOLLOW_BACK_TIMEOUT_HOURS), unfollowed (verified)", lead["row"], lead["username"], settings.follow_back_timeout_hours)
         return True
     store.update(lead["row"], **{
         "Follow Status": "UNFOLLOW_FAILED", "Last Checked At": now.isoformat(),
@@ -171,13 +174,24 @@ def run(source=None):
             logger.info("Row %s (@%s): no follow-back after Y=%.0fh, proactive DM now eligible", lead["row"], lead["username"], settings.follow_back_wait_hours)
             continue
 
-        # Deadline check comes AFTER both DM-trigger checks above (see the ordering note there) --
-        # by the time control reaches here, either this lead already got its one message on an
-        # earlier pass (already_triggered/already_messaged), or it's a legacy/edge case that
-        # genuinely never had a Y window to hit (e.g. followed_back is true and was already
-        # RECEIVED, or Message Fallback At is missing). Never unfollows a lead that hasn't had its
-        # chance at a proactive DM yet.
-        if deadline and now >= deadline:
+        # Deadline check comes AFTER both DM-trigger checks above (see the ordering note there).
+        #
+        # CRITICAL: once a message has been triggered OR already sent for this lead
+        # (already_triggered/already_messaged), the follow-back deadline no longer applies AT ALL
+        # -- ownership of "should we give up on this lead" transfers entirely to
+        # cleanup_worker.py's own separate, independent reply-based timers
+        # (SEEN_NO_REPLY_HOURS / UNSEEN_EXPIRY_DAYS). This is the actual fix for a real bug found
+        # from live logs: a lead's row going unchecked for a while (any ordinary delay, not an
+        # outage) meant Y and the deadline could both already be past by the time it was finally
+        # checked. The earlier ordering fix made sure the DM fired first in that same pass, but did
+        # nothing to stop the SAME already-passed deadline from firing again on the very next
+        # check, just minutes later -- unfollowing a lead within an hour of messaging it, before it
+        # had any real chance to reply. Confirmed directly from two real log timelines: DM sent,
+        # then unfollowed 51 and 64 minutes later, both logged as "no follow-back after 7 days"
+        # (Amit's actual configured deadline was 36 hours -- the log wording was also wrong, fixed
+        # below). Two independent unfollow clocks racing each other over the same lead was the
+        # root cause; a lead we've messaged is no longer this clock's problem.
+        if deadline and now >= deadline and not already_triggered and not already_messaged:
             if followed_back:
                 if fb_status != "RECEIVED":
                     store.update(lead["row"], **{"Follow Back Status": "RECEIVED", "Follow Back At": data.get("Follow Back At") or now.isoformat(), "Last Checked At": now.isoformat(), "Last Automation Action": "FOLLOW_BACK_DEADLINE_CHECK_FOLLOWING"})
