@@ -37,6 +37,19 @@ def run(source=None):
     for lead in store.priority_rows():
         if pause_requested(): break
         data=store.get_row(lead["row"])
+        # BUG FIX: a lead that was already successfully unfollowed by THIS worker kept getting
+        # re-selected forever -- _attempt_unfollow() sets Follow Status=UNFOLLOWED and Automation
+        # Status=FILTERED on success, but never touches Message Status (stays "SENT") or Reply
+        # Status, which are the only two things the entry checks below actually look at. So the
+        # exact same row kept re-passing both checks, recomputing "still no reply", and calling
+        # ig.unfollow() again -- and again -- indefinitely (confirmed directly from real logs:
+        # the same handful of leads unfollowed repeatedly over multiple days). Checking this
+        # first and skipping is the fix; deliberately checking Follow Status directly rather than
+        # store.do_not_refollow() here, since that helper also treats Automation Status=FILTERED
+        # as a stop condition -- but a FAILED unfollow attempt (Follow Status=UNFOLLOW_FAILED)
+        # ALSO sets Automation Status=FILTERED, and that specific case is the one this worker is
+        # deliberately supposed to keep retrying (see the block just below).
+        if str(data.get("Follow Status") or "").upper()=="UNFOLLOWED": continue
         if data.get("Message Status")!="SENT": continue
         if data.get("Reply Status") in {"REPLIED","REPLIED_LATE"}: continue
         # Retry a previously failed cleanup only at its scheduled time.
